@@ -1,0 +1,10 @@
+Inital Unstable 0.10.0
+
+	- Better help. Why wasn't that there in the first place?
+	- Work started on a better theme engine. It is not ready.
+	- Changed bmpanel directory refs.
+	- Destroyed a lot of (unnecessary) logging. I'll re-enable it once I add a --verbose flag. This is just a header function nerfing.
+
+Known bugs in 0.10.0
+
+	- Command line parameters can be interpreted out of order, and some odd things can happen. For example: expanel -h theme does not print help. It bombs. Theme '-h' not found.

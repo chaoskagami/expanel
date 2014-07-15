@@ -6,7 +6,8 @@ REQUIREMENTS ------------
  - XRender
  - XComposite
  - fontconfig
- - make and gcc 4.x.x to compile library (tested on gcc 4.2.3)
+ - make 3.8x (4.x is untested)
+ - gcc 4.x.x to compile library (tested on gcc 4.7.3 with pie and ssp enabled)
 
 INSTALL -------
 
@@ -15,8 +16,8 @@ simply run as root without sudo):
 
 ./configure && sudo make install
 
-Will install bmpanel to /usr/bin/bmpanel and themes to
-/usr/share/bmpanel/themes.  If you don't like default prefix for
+Will install expanel to /usr/bin/expanel and themes to
+/usr/share/expanel/themes.  If you don't like default prefix for
 install, you can specify it like this:
 
 ./configure --prefix=/usr/local && sudo make install
@@ -25,16 +26,15 @@ RUNNING -------
 
 Simply run:
 
-bmpanel <theme>
+expanel [opts] <theme>
 
 where <theme> is one of built-in themes or separate downloaded theme.
 
-BMPanel have no config files, it uses theme files instead. BMPanel
-will search for themes in following places in following order:
+EXPanel doesn't use config files, it uses theme files instead. EXPanel
+will search for themes in the following places in following order:
 
-1. ~/.bmpanel/themes/<theme> 2. PREFIX/share/bmpanel/themes/<theme>
-(default: /usr/share/bmpanel/themes/<theme>) 3. <theme> (if you use
-absolute path)
+1. ~/.expanel/themes/<theme> 2. PREFIX/share/expanel/themes/<theme>
+(default: /usr/share/expanel/themes/<theme>) 3. ./<theme>
 
 You might want to run bmpanel in background. For example with native
 theme:
@@ -44,7 +44,7 @@ bmpanel native &
 THEME NOTES
 -----------
 
-As of version 0.9.16 bmpanel uses fontconfig font searching style. For
+Expanel uses fontconfig font searching style. For
 more info please see: http://fontconfig.org/fontconfig-user.html
 
-Themes documentation currently available at page: http://nsf.110mb.com/bmpanel 
+More documentation will come. Hopefully I'll format some manpages.
