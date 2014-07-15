@@ -10,21 +10,6 @@
 #include "logger.h"
 #include "theme.h"
 
-static void free_imlib_font(Imlib_Font font);
-static void free_imlib_image(Imlib_Image img);
-static uint figure_out_placement(const char *str);
-static uint figure_out_align(const char *str);
-static uint figure_out_width_type(const char *str);
-static int parse_key_value(const char *key, const char *value, struct theme *t);
-static int parse_line(char *line, struct theme *t);
-static void parse_color(struct color *c, const char *value);
-static uchar hex_to_dec(uchar c);
-static int load_and_parse_theme(struct theme *t);
-
-static Imlib_Font load_font(const char *pattern);
-static int init_fontcfg();
-static void shutdown_fontcfg();
-
 struct theme *load_theme(const char *dir)
 {
 	if (!init_fontcfg())
@@ -189,13 +174,13 @@ void theme_remove_element(struct theme* t, char e)
   free helpers
 **************************************************************************/
 
-static void free_imlib_font(Imlib_Font font)
+void free_imlib_font(Imlib_Font font)
 {
 	imlib_context_set_font(font);
 	imlib_free_font();
 }
 
-static void free_imlib_image(Imlib_Image img)
+void free_imlib_image(Imlib_Image img)
 {
 	imlib_context_set_image(img);
 	imlib_free_image();
@@ -205,7 +190,7 @@ static void free_imlib_image(Imlib_Image img)
   string to enum converters
 **************************************************************************/
 
-static uint figure_out_placement(const char *str)
+uint figure_out_placement(const char *str)
 {
 	if (!strcmp("top", str)) {
 		return PLACE_TOP;
@@ -215,7 +200,7 @@ static uint figure_out_placement(const char *str)
 	return 0;
 }
 
-static uint figure_out_align(const char *str)
+uint figure_out_align(const char *str)
 {
 	if (!strcmp("left", str)) {
 		return ALIGN_LEFT;
@@ -227,7 +212,7 @@ static uint figure_out_align(const char *str)
 	return 0;
 }
 
-static uint figure_out_width_type(const char *str)
+uint figure_out_width_type(const char *str)
 {
 	/* If seeking by percent */
 	return (strchr(str, '%') != 0 ? WIDTH_TYPE_PERCENT : WIDTH_TYPE_PIXELS);
@@ -237,7 +222,7 @@ static uint figure_out_width_type(const char *str)
   evil slow parser (TODO: rewrite with hash table?)
 **************************************************************************/
 
-static int parse_key_value(const char *key, const char *value, struct theme *t)
+int parse_key_value(const char *key, const char *value, struct theme *t)
 {
 	char buf[4096];
 
@@ -402,7 +387,7 @@ static int parse_key_value(const char *key, const char *value, struct theme *t)
 	return 1;
 }
 
-static int parse_line(char *line, struct theme *t)
+int parse_line(char *line, struct theme *t)
 {
 	/* TODO: error checks */
 	int len = strlen(line);
@@ -423,7 +408,7 @@ static int parse_line(char *line, struct theme *t)
 	return parse_key_value(key, value, t);
 }
 
-static int load_and_parse_theme(struct theme *t)
+int load_and_parse_theme(struct theme *t)
 {
 	char buf[4096];
 	snprintf(buf, sizeof(buf), "%s/theme", t->themedir);
@@ -450,7 +435,7 @@ static int load_and_parse_theme(struct theme *t)
 	return 1;
 }
 
-static uchar hex_to_dec(uchar c)
+uchar hex_to_dec(uchar c)
 {
 	if (c >= '0' && c <= '9')
 		return c - '0';
@@ -461,7 +446,7 @@ static uchar hex_to_dec(uchar c)
 	return 15;
 }
 
-static void parse_color(struct color *c, const char *value)
+void parse_color(struct color *c, const char *value)
 {
 	/* red */
 	c->r = 16 * hex_to_dec(*value++);
@@ -478,7 +463,7 @@ static void parse_color(struct color *c, const char *value)
   font config stuff
 **************************************************************************/
 
-static Imlib_Font load_font(const char *pattern)
+Imlib_Font load_font(const char *pattern)
 {
 	char buf[512];
 	FcPattern *pat;
@@ -540,7 +525,7 @@ static Imlib_Font load_font(const char *pattern)
 	return imlib_load_font(buf);
 }
 
-static int init_fontcfg()
+int init_fontcfg()
 {
 	if (!FcInit()) {
 		LOG_WARNING("failed to initialize fontconfig");
@@ -549,7 +534,7 @@ static int init_fontcfg()
 	return 1;
 }
 
-static void shutdown_fontcfg()
+void shutdown_fontcfg()
 {
 	FcFini();
 }

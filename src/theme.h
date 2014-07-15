@@ -86,9 +86,15 @@ struct switcher_theme {
 	int space_gap;
 };
 
+
+
 struct theme {
-	char *name;
-	char *author;
+	char* name;
+	char* author;
+	char* email;
+	char* website;
+	char* version;
+
 	int version_major;
 	int version_minor;
 
@@ -128,5 +134,19 @@ void free_theme(struct theme *t);
 int theme_is_valid(struct theme *t);
 int is_element_in_theme(struct theme *t, char e);
 void theme_remove_element(struct theme* t, char e);
+void free_imlib_font(Imlib_Font font);
+void free_imlib_image(Imlib_Image img);
+uint figure_out_placement(const char *str);
+uint figure_out_align(const char *str);
+uint figure_out_width_type(const char *str);
+int parse_key_value(const char *key, const char *value, struct theme *t);
+int parse_line(char *line, struct theme *t);
+void parse_color(struct color *c, const char *value);
+uchar hex_to_dec(uchar c);
+int load_and_parse_theme(struct theme *t);
+
+Imlib_Font load_font(const char *pattern);
+int init_fontcfg();
+void shutdown_fontcfg();
 
 #endif

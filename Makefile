@@ -13,6 +13,7 @@ DEPS :=
 
 CC := gcc
 LD := gcc
+CFLAGS := -std=gnu99
 
 all: setup srcs
 

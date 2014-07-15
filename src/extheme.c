@@ -1,45 +1,54 @@
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
+#include <fontconfig/fontconfig.h>
+#include <stdio.h>
+#include <ctype.h>
+#include <string.h>
+#include <unistd.h>
+#include "logger.h"
+
 #include "extheme.h"
-#include "jsmn/jsmn.h"
+#include "jsmn.h"
 
-static void free_imlib_font(Imlib_Font font);
-static void free_imlib_image(Imlib_Image img);
-static uint figure_out_placement(const char *str);
-static uint figure_out_align(const char *str);
-static uint figure_out_width_type(const char *str);
-static void parse_color(struct color *c, const char *value);
-static uchar hex_to_dec(uchar c);
-static int decode_theme(struct theme* t);
-
-static Imlib_Font load_font(const char *pattern);
-static int init_fontcfg();
-static void shutdown_fontcfg();
+int theme_decode(struct theme* t);
+char* theme_read(struct theme* t);
+void free_theme_new(struct theme *t);
 
 //===================================================
 // Main expanel theme loader function.
 //===================================================
 
-struct theme *load_theme(const char *dir) {
+struct theme *load_theme_new(const char *dir) {
 	if (!init_fontcfg())
 		return 0;
 
-	struct theme *t = XMALLOCZ(struct theme, 1);
+	struct theme *t = calloc(sizeof(struct theme), 1);
 	t->themedir = xstrdup(dir);
 
-	if(!theme_decode(theme)) {
-		int r = free_theme(theme);
-		switch(r) {
+	int ret;
+	if((ret = theme_decode(t)) < 0) {
+		free_theme_new(t);
+		switch(ret) {
 			case -2:
 				fprintf(stderr, "[Error] Json theme has an invalid character in it.\n");
+				break;
 			case -3:
 				fprintf(stderr, "[Error] Json theme has a syntax error. Check your parenthesis, quotes, etc.\n");
+				break;
 			case -4:
 				fprintf(stderr, "[Error] You've formatted things incorrectly. Make sure EVERYTHING is a curly brace block.\n");
+				break;
 			case -5:
 				fprintf(stderr, "[Error] One or more essential blocks in your theme are incorrect. Make sure they're not values.\n");
+				break;
 			case -6:
 				fprintf(stderr, "[Error] Please don't put values in the top level. They serve no purpose and will cause this.\n");
+				break;
 			case -7:
-				fprintf(stderr, "[Error] A mandatory theme block, general or widgets, is missing.\n")
+				fprintf(stderr, "[Error] A mandatory theme block, general or widgets, is missing.\n");
+				break;
 		}
 		return 0;
 	}
@@ -63,6 +72,7 @@ struct theme *load_theme(const char *dir) {
 		t->taskbar.default_icon_img = sizedicon;
 	}
 
+	return t;
 }
 
 //===================================================
@@ -71,9 +81,11 @@ struct theme *load_theme(const char *dir) {
 
 #define TOKEN_INCREMENTS 20
 
-static int theme_decode(struct theme* t) {
+int theme_decode(struct theme* t) {
 	// Load the entire theme text into memory.
-	static char* theme_text = theme_read(t);
+	char* theme_text = theme_read(t);
+
+	int ret = 0;
 
 	// Create a JSNM Parser instance and parse.
 	jsmn_parser parser;
@@ -83,15 +95,15 @@ static int theme_decode(struct theme* t) {
 	jsmn_init(&parser);
 
 	// Until we finish reading it all, keep trying by increasing memory.
-	while( ret = jsmn_parse(&parser, theme_text, strlen(theme_text), token_storage, MAXIMUM_TOKENS) == -1 ) {
+	while( (ret = jsmn_parse(&parser, theme_text, strlen(theme_text), token_storage, TOKEN_INCREMENTS * token_storage_size)) == -1 ) {
 		token_storage_size *= 2; // This probably takes less time than ++, though it uses more memory.
-		jsmntok_t *token_storage = realloc(sizeof(jsmntok_t), token_storage_size * TOKEN_INCREMENTS);
+		token_storage = realloc(token_storage, sizeof(jsmntok_t) * token_storage_size * TOKEN_INCREMENTS);
 	}
 
 	// Check for errors.
-	if(r < 0) {
+	if(ret < 0) {
 		free(theme_text);
-		return r;
+		return ret;
 	}
 
 	// Start filling in the theme struct.
@@ -99,7 +111,7 @@ static int theme_decode(struct theme* t) {
 	jsmntok_t *info_ptr = NULL, *general_ptr = NULL, *widgets_ptr = NULL;
 
 	// Quick syntax check.
-	if(token_storage[0]->type != JSMN_OBJECT) {
+	if(token_storage[0].type != JSMN_OBJECT) {
 		return -4;
 	}
 
@@ -110,40 +122,40 @@ static int theme_decode(struct theme* t) {
 
 		}
 		// Is this a info block?
-		else if(token_storage[i]->type == JSNM_STRING &&
-			!strncmp(&theme_test[token_storage[i]->start], "info", (token_storage[i]->end - token_storage[i]->start))) {
+		else if(token_storage[i].type == JSMN_STRING &&
+			!strncmp(&theme_text[token_storage[i].start], "info", (token_storage[i].end - token_storage[i].start))) {
 			
-			if(token_storage[i+1]->type == JSNM_OBJECT)
+			if(token_storage[i+1].type == JSMN_OBJECT)
 				info_ptr = &token_storage[i+1];
 			else
 				return -5;
 			
 			// Skip over everything in that block.
-			i += token_storage[i]->size - 1;
+			i += token_storage[i].size - 1;
 		}
 		// General?
-		else if(token_storage[i]->type == JSNM_STRING &&
-			!strncmp(&theme_test[token_storage[i]->start], "general", (token_storage[i]->end - token_storage[i]->start))) {
+		else if(token_storage[i].type == JSMN_STRING &&
+			!strncmp(&theme_text[token_storage[i].start], "general", (token_storage[i].end - token_storage[i].start))) {
 			
-			if(token_storage[i+1]->type == JSNM_OBJECT)
+			if(token_storage[i+1].type == JSMN_OBJECT)
 				general_ptr = &token_storage[i+1];
 			else
 				return -5;
 
 			// Skip over everything in that block.
-			i += token_storage[i]->size - 1;
+			i += token_storage[i].size - 1;
 		}
 		// Widgets?
-		else if(token_storage[i]->type == JSNM_STRING &&
-			!strncmp(&theme_test[token_storage[i]->start], "widgets", (token_storage[i]->end - token_storage[i]->start))) {
+		else if(token_storage[i].type == JSMN_STRING &&
+			!strncmp(&theme_text[token_storage[i].start], "widgets", (token_storage[i].end - token_storage[i].start))) {
 			
-			if(token_storage[i+1]->type == JSNM_OBJECT)
+			if(token_storage[i+1].type == JSMN_OBJECT)
 				widgets_ptr = &token_storage[i+1];
 			else
 				return -5;
 
 			// Skip over everything in that block.
-			i += token_storage[i]->size - 1;
+			i += token_storage[i].size - 1;
 		}
 		// Syntax error.
 		else {
@@ -160,26 +172,26 @@ static int theme_decode(struct theme* t) {
 	// First off - info. This is a simple affair.
 	// Possible keys: name, email, author, website, version
 	if(info_ptr != NULL) {
-		for(int i = 1; i < info_ptr[0]->size; i += 2) {
-			if(!strncmp(&theme_test[token_storage[i]->start], "name", (token_storage[i]->end - token_storage[i]->start))) {
-				t->name = calloc(sizeof(char), token_storage[i+1]->end - token_storage[i+1]->start + 1);
-				strncpy(t->name, &theme_test[token_storage[i]->start], token_storage[i+1]->end - token_storage[i+1]->start);
+		for(int i = 1; i < info_ptr[0].size; i += 2) {
+			if(!strncmp(&theme_text[token_storage[i].start], "name", (token_storage[i].end - token_storage[i].start))) {
+				t->name = calloc(sizeof(char), token_storage[i+1].end - token_storage[i+1].start + 1);
+				strncpy(t->name, &theme_text[token_storage[i].start], token_storage[i+1].end - token_storage[i+1].start);
 			}
-			if(!strncmp(&theme_test[token_storage[i]->start], "email", (token_storage[i]->end - token_storage[i]->start))) {
-				t->email = calloc(sizeof(char), token_storage[i+1]->end - token_storage[i+1]->start + 1);
-				strncpy(t->email, &theme_test[token_storage[i]->start], token_storage[i+1]->end - token_storage[i+1]->start);
+			if(!strncmp(&theme_text[token_storage[i].start], "email", (token_storage[i].end - token_storage[i].start))) {
+				t->email = calloc(sizeof(char), token_storage[i+1].end - token_storage[i+1].start + 1);
+				strncpy(t->email, &theme_text[token_storage[i].start], token_storage[i+1].end - token_storage[i+1].start);
 			}
-			if(!strncmp(&theme_test[token_storage[i]->start], "website", (token_storage[i]->end - token_storage[i]->start))) {
-				t->website = calloc(sizeof(char), token_storage[i+1]->end - token_storage[i+1]->start + 1);
-				strncpy(t->website, &theme_test[token_storage[i]->start], token_storage[i+1]->end - token_storage[i+1]->start);
+			if(!strncmp(&theme_text[token_storage[i].start], "website", (token_storage[i].end - token_storage[i].start))) {
+				t->website = calloc(sizeof(char), token_storage[i+1].end - token_storage[i+1].start + 1);
+				strncpy(t->website, &theme_text[token_storage[i].start], token_storage[i+1].end - token_storage[i+1].start);
 			}
-			if(!strncmp(&theme_test[token_storage[i]->start], "version", (token_storage[i]->end - token_storage[i]->start))) {
-				t->version = calloc(sizeof(char), token_storage[i+1]->end - token_storage[i+1]->start + 1);
-				strncpy(t->version, &theme_test[token_storage[i]->start], token_storage[i+1]->end - token_storage[i+1]->start);
+			if(!strncmp(&theme_text[token_storage[i].start], "version", (token_storage[i].end - token_storage[i].start))) {
+				t->version = calloc(sizeof(char), token_storage[i+1].end - token_storage[i+1].start + 1);
+				strncpy(t->version, &theme_text[token_storage[i].start], token_storage[i+1].end - token_storage[i+1].start);
 			}
-			if(!strncmp(&theme_test[token_storage[i]->start], "author", (token_storage[i]->end - token_storage[i]->start))) {
-				t->author = calloc(sizeof(char), token_storage[i+1]->end - token_storage[i+1]->start + 1);
-				strncpy(t->author, &theme_test[token_storage[i]->start], token_storage[i+1]->end - token_storage[i+1]->start);
+			if(!strncmp(&theme_text[token_storage[i].start], "author", (token_storage[i].end - token_storage[i].start))) {
+				t->author = calloc(sizeof(char), token_storage[i+1].end - token_storage[i+1].start + 1);
+				strncpy(t->author, &theme_text[token_storage[i].start], token_storage[i+1].end - token_storage[i+1].start);
 			}
 		}
 	}
@@ -191,21 +203,21 @@ static int theme_decode(struct theme* t) {
 		t->author = "?";
 	}
 	
-	
+	return 0;
 }
 
 //===================================================
 // Loading helper functions.
 //===================================================
 
-static char* theme_read(struct theme* t) {
+char* theme_read(struct theme* t) {
 	// The original code didn't check things. We will.
 	int dir_len = strlen(t->themedir);
 	char* theme_file = calloc(sizeof(char), dir_len + 8); // 8 because '/theme.ex' is eight chars.
 
-	snprintf(buf, sizeof(buf), "%s/theme.ex", t->themedir); // snprintf is redundant, since we're using safe allocation. I'll leave it.
+	snprintf(theme_file, dir_len+8, "%s/theme.ex", t->themedir); // snprintf is redundant, since we're using safe allocation. I'll leave it.
 	
-	FILE *f = fopen(buf, "rb");
+	FILE *f = fopen(theme_file, "rb");
 	if (!f) {
 		return 0;
 	}
@@ -214,7 +226,7 @@ static char* theme_read(struct theme* t) {
 	size_t filesize = ftell(f);
 	fseek(f, 0L, SEEK_SET);
 	
-	static char* file_buffer = calloc(sizeof(char), filesize);
+	char* file_buffer = calloc(sizeof(char), filesize);
 	fread(file_buffer, (size_t)1, filesize, f);
 
 	fclose(f);
@@ -228,7 +240,7 @@ static char* theme_read(struct theme* t) {
 // Cleanup functions.
 //===================================================
 
-void free_theme(struct theme *t) {
+void free_theme_new(struct theme *t) {
 	if (t->name) xfree(t->name);
 	if (t->author) xfree(t->author);
 	if (t->elements) xfree(t->elements);
@@ -267,234 +279,4 @@ void free_theme(struct theme *t) {
 
 	xfree(t);
 	shutdown_fontcfg();
-}
-
-int theme_is_valid(struct theme *t)
-{
-	if (!t->elements) {
-		return 0;
-	}
-
-	if (!is_element_in_theme(t, 'b')) {
-		return 0;
-	}
-
-	if (is_element_in_theme(t, 's')) {
-		/* check desktop switcher */
-		if (!t->switcher.tile_img[BSTATE_IDLE] ||
-		    !t->switcher.tile_img[BSTATE_PRESSED])
-		{
-			return 0;
-		}
-	} 
-	if (is_element_in_theme(t, 'b')) {
-		/* check taskbar */
-		if (!t->taskbar.font ||
-		    !t->taskbar.tile_img[BSTATE_IDLE] ||
-		    !t->taskbar.tile_img[BSTATE_PRESSED])
-		{
-			return 0;
-		}
-
-		if (t->taskbar.icon_h != 0 &&
-		    t->taskbar.icon_w != 0 &&
-		    !t->taskbar.default_icon_img) 
-		{
-			return 0;
-		}
-	} 
-	if (is_element_in_theme(t, 't')) {
-		/* check icon tray */
-		if (!t->tray_icon_h ||
-		    !t->tray_icon_w)
-		{
-			return 0;
-		}
-	} 
-	if (is_element_in_theme(t, 'c')) {
-		/* check clock */
-		if (!t->clock.font ||
-		    !t->clock.tile_img)
-		{
-			return 0;
-		}
-
-		if (!t->clock.format) {
-			return 0;
-		}
-	}
-	return 1;
-}
-
-//===================================================
-// Fontconfig/Imlib functions.
-//===================================================
-
-
-static Imlib_Font load_font(const char *pattern)
-{
-	char buf[512];
-	FcPattern *pat;
-	FcPattern *match;
-	FcResult result;
-
-	pat = FcNameParse((FcChar8*)pattern);
-	if (!pat) {
-		LOG_WARNING("failed to parse font name to pattern");
-		return 0;
-	}
-
-	FcConfigSubstitute(0, pat, FcMatchPattern);
-	FcDefaultSubstitute(pat);
-
-	match = FcFontMatch(0, pat, &result);
-	FcPatternDestroy(pat);
-
-	if (!match) {
-		LOG_WARNING("no matching font found");
-		return 0;
-	}
-
-	FcChar8 *filename_tmp;
-	char *filename;
-	int size;
-	if (FcPatternGetString(match, FC_FILE, 0, &filename_tmp) != FcResultMatch) {
-		LOG_WARNING("can't get font filename from match");
-		FcPatternDestroy(match);
-		return 0;
-	}
-
-	if (FcPatternGetInteger(match, FC_SIZE, 0, &size) != FcResultMatch) {
-		LOG_WARNING("can't get font size from match");
-		FcPatternDestroy(match);
-		return 0;
-	}
-	filename = xstrdup((char*)filename_tmp);
-	FcPatternDestroy(match);
-
-	/* cut off file extension */
-	char *stmp = strrchr(filename, '.');
-	if (!stmp) {
-		LOG_WARNING("failed to find '.' in font file name, miss extension?");
-		xfree(filename);
-		return 0;
-	}
-	if (strcasecmp(stmp, ".ttf") != 0) {
-		LOG_WARNING("only ttf files are supported");
-		xfree(filename);
-		return 0;
-	}
-	*stmp = '\0';
-
-	/* form imlib2 font string */
-	snprintf(buf, sizeof(buf), "%s/%d", filename, size);
-
-	xfree(filename);
-	return imlib_load_font(buf);
-}
-
-static int init_fontcfg()
-{
-	if (!FcInit()) {
-		LOG_ERROR("failed to initialize fontconfig");
-	}
-}
-
-static void shutdown_fontcfg()
-{
-	FcFini();
-}
-
-//===================================================
-// IMLIB functions.
-//===================================================
-
-static void free_imlib_font(Imlib_Font font)
-{
-	imlib_context_set_font(font);
-	imlib_free_font();
-}
-
-static void free_imlib_image(Imlib_Image img)
-{
-	imlib_context_set_image(img);
-	imlib_free_image();
-}
-
-//===================================================
-// Enumeration Converter functions.
-//===================================================
-
-static uint figure_out_placement(const char *str)
-{
-	if (!strcmp("top", str)) {
-		return PLACE_TOP;
-	} else if (!strcmp("bottom", str)) {
-		return PLACE_BOTTOM;
-	}
-	return 0;
-}
-
-static uint figure_out_align(const char *str)
-{
-	if (!strcmp("left", str)) {
-		return ALIGN_LEFT;
-	} else if (!strcmp("center", str)) {
-		return ALIGN_CENTER;
-	} else if (!strcmp("right", str)) {
-		return ALIGN_RIGHT;
-	}
-	return 0;
-}
-
-static uint figure_out_width_type(const char *str)
-{
-	/* If seeking by percent */
-	return (strchr(str, '%') != 0 ? WIDTH_TYPE_PERCENT : WIDTH_TYPE_PIXELS);
-}
-
-//===================================================
-// Miscellaneous Helper functions.
-//===================================================
-
-static uchar hex_to_dec(uchar c)
-{
-	if (c >= '0' && c <= '9')
-		return c - '0';
-	if (c >= 'a' && c <= 'z')
-		return c - 'a' + 10;
-	if (c >= 'A' && c <= 'Z')
-		return c - 'A' + 10;
-	return 15;
-}
-
-static void parse_color(struct color *c, const char *value)
-{
-	/* red */
-	c->r = 16 * hex_to_dec(*value++);
-	c->r += hex_to_dec(*value++);
-	/* green */
-	c->g = 16 * hex_to_dec(*value++);
-	c->g += hex_to_dec(*value++);
-	/* blue */
-	c->b = 16 * hex_to_dec(*value++);
-	c->b += hex_to_dec(*value++);
-}
-
-int is_element_in_theme(struct theme *t, char e)
-{
-	return (strchr(t->elements, e) != 0);
-}
-
-void theme_remove_element(struct theme* t, char e)
-{
-	char *p, *c;
-	p = c = strchr(t->elements, e);
-	if (!c)
-		return;
-
-	while (*p) {
-		*p = *++c;
-		p++;
-	}
 }
