@@ -1,0 +1,59 @@
+name						EXPanel default theme
+author						chaoskagami <chaos.kagami@gmail.com>
+version_major				10
+version_minor				0
+placement					bottom
+tile_img					tile.png
+separator_img				separate.png
+
+tray_icon_w					24
+tray_icon_h					24
+
+elements					sbtc
+
+# ===== CLOCK =====
+
+clock_tile_img 				tile.png
+
+clock_font 					DejaVuSans-14
+clock_text_color 			FFFFFF
+clock_text_padding 			12
+clock_text_align 			center
+
+clock_format 				%H:%M:%S
+
+# ===== TASKBAR =====
+
+tb_right_idle_img 			task_right_idle.png
+tb_tile_idle_img 			task_idle.png
+tb_left_idle_img 			task_left_idle.png
+
+tb_right_pressed_img 		task_right_act.png
+tb_tile_pressed_img 		task_act.png
+tb_left_pressed_img 		task_left_act.png
+
+tb_default_icon_img 		icon.png
+
+tb_font 					DejaVuSans-8
+tb_text_color_idle 			FFFFFF
+tb_text_color_pressed 		FFFFFF
+tb_text_offset_x 			5
+tb_text_offset_y 			0
+tb_text_align 				left
+
+tb_icon_offset_x 			0
+tb_icon_offset_y 			1
+tb_icon_w 					24
+tb_icon_h 					24
+
+tb_space_gap 				1
+
+# ===== SWITCHER =====
+
+ds_tile_idle_img 			tile.png
+ds_tile_pressed_img 		act.png
+
+ds_separator_img 			separate.png
+
+ds_text_padding 			48
+ds_text_align 				center

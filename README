@@ -1,0 +1,21 @@
+Copyright (c) 2008 nsf, (c) 2014 chaoskagami
+
+EXPanel (Extended Panel) is a lightweight panel with taskbar, tray, desktop
+switcher and clock (with more soon.) It's a fork of bmpanel which hasn't been maintained,
+which itself is is a themeable reincarnation of fspanel. This panel should work with
+any NETWM (aka EWMH) compliant window manager. The systray follows only the standard
+systray-spec, KDE tray is not supported for the moment (the original author didn't
+care apparently. 'non-standards can die' was his phrasing. I do care, however.)
+
+Keep in mind this version is a fork. You probably (definitely) will get zero support
+from the original author. Go to my github (github.com/chaoskagami/expanel) and report
+bugs there. I'll need the version/git-rev you're running, as well as the versions of
+software on the backend.
+
+Note that bmpanel theme format will be deprecated soon. For now, it will accept them if
+-b is passed on the console.
+
+Thank you for using expanel!
+
+(Want to build? See INSTALL.)
+(Legalese? See COPYING. TL;DR - MIT.)
